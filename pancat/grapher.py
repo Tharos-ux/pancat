@@ -365,51 +365,38 @@ def multigraph_viewer(
         node_prefix='B',
         node_size_classes=bounds
     )
+    nodes_a:list[str] = [node[2:] for node in pangenome_graph_A.nodes.keys()]
+    nodes_b:list[str] = [node[2:] for node in pangenome_graph_B.nodes.keys()]
+
+    editions: dict = load(open(file_editions, 'r', encoding='utf-8'))
+
+    edge_bank: dict[tuple, str] = dict()
+    for basename in editions.keys():
+        for style in ['merges', 'splits']:
+            for _, [node_A, node_B] in editions[basename][style]:
+                if node_A in nodes_a and node_B in nodes_b:
+                    v_1,v_2 = edge_bank.get((node_A,node_B),(0,0))
+                    if style == 'merges':
+                        v_1 += 1
+                    elif style == 'splits':
+                        v_2 += 1
+                    edge_bank[(node_A,node_B)] = (v_1,v_2)
+
 
     full_graph: MultiDiGraph = compose(
         pangenome_graph_A,
         pangenome_graph_B
     )
 
-    editions: dict = load(open(file_editions, 'r', encoding='utf-8'))
 
-    for path in set(gfa_graph_A.paths.keys()).intersection(set(gfa_graph_B.paths.keys())):
-        # Loop id identifies the loop (if any) in the path -> helps to find the right position in the path for the node
-        basename, loop_id = path.split('\0')[0], int(path.split('\0')[1])
-        edition = editions[basename]
-        # Need to init the counters at the starting position of the subpaths we extracted
-        current_counter_A: int = 0
-        current_counter_B: int = 0
-        node_index_A: int = 0
-        node_index_B: int = 0
-        edge_bank: dict[tuple, str] = dict()
-        for style in ['merges', 'splits']:
-            for pos, [node_A, node_B] in edition[style]:
-                while current_counter_A < pos:
-                    current_counter_A += gfa_graph_A.segments[
-                        gfa_graph_A.paths[path]
-                        ['path'][node_index_A][0]
-                    ]['length']
-                    node_index_A += 1
-                while current_counter_B < pos:
-                    current_counter_B += gfa_graph_B.segments[
-                        gfa_graph_B.paths[path]
-                        ['path'][node_index_B][0]
-                    ]['length']
-                    node_index_B += 1
-                current_value = '0:0' if (x := (
-                    f"A_{gfa_graph_A.paths[path]['path'][node_index_A-1][0]}",
-                    f"B_{gfa_graph_B.paths[path]['path'][node_index_B-1][0]}"
-                )) not in edge_bank else edge_bank[x]
-                edge_bank[x] = f"{int(current_value.split(':')[0])+1}:{int(current_value.split(':')[1])}" if style == 'merges' else f"{int(current_value.split(':')[0])}:{int(current_value.split(':')[1])+1}"
-    for (a, b), label_ms in edge_bank.items():
+    for (a, b), (v_1,v_2) in edge_bank.items():
         full_graph.add_edge(
-            a,
-            b,
+            f"A_{a}",
+            f"B_{b}",
             arrows='',
             alpha=.5,
             color='blue',
-            label=label_ms,
+            label=f"{v_1}:{v_2}",
         )
 
     stats_A = compute_stats(

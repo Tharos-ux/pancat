@@ -289,6 +289,8 @@ def graph_level_edition(graph_A: Graph, graph_B: Graph) -> set:
                 ] = set()  # set for merges
     splits: set[frozenset[tuple[str, frozenset, tuple[str]]]
                 ] = set()  # set for splits
+    equiv: set[frozenset[tuple[str, frozenset, tuple[str]]]
+                ] = set()  # set for splits
 
     intersect: set = set(graph_A.paths.keys()).intersection(
         set(graph_B.paths.keys()))
@@ -328,6 +330,23 @@ def graph_level_edition(graph_A: Graph, graph_B: Graph) -> set:
             match (global_pos-pos_A == graph_A.segments[current_node_A]['length'], global_pos-pos_B == graph_B.segments[current_node_B]['length']):
                 case (True, True):
                     # Iterating on both, no edition needed
+                    equiv.add(
+                        frozenset(
+                            (
+                                (
+                                    path_name,
+                                    frozenset(
+                                        x for x, _, _ in list_of_positions
+                                    ),
+                                    (
+                                        current_node_A,
+                                        current_node_B,
+                                    )
+                                )
+                                for path_name, list_of_positions in graph_B.segments[current_node_B]['PO'].items()
+                            )
+                        )
+                    )
                     pos_A += graph_A.segments[current_node_A]['length']
                     pos_B += graph_B.segments[current_node_B]['length']
                     i += 1
@@ -386,6 +405,11 @@ def graph_level_edition(graph_A: Graph, graph_B: Graph) -> set:
         [
             (path_name, [x for x in pos], nodes) for path_name, pos, nodes in ext_fset
         ] for ext_fset in splits
+    ]
+    edition_results['equiv'] = [
+        [
+            (path_name, [x for x in pos], nodes) for path_name, pos, nodes in ext_fset
+        ] for ext_fset in equiv
     ]
 
     return edition_results
